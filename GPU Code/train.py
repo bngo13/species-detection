@@ -2,7 +2,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.neural_network import MLPClassifier
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
@@ -27,13 +27,15 @@ def main():
     X.columns = X.columns.astype(str)
     
     Xt, Xv, yt, yv = train_test_split(X, y, test_size=0.30, random_state=50)
+
     # CPU Bound
     with parallel_backend('threading', n_jobs=8):
         rfc = RandomForestClassifier()
         gnb = GaussianNB()
         knc = KNeighborsClassifier()
         svc = SVC()
-        gpc = GaussianProcessClassifier()
+        mlp = MLPClassifier()
+        
 
         print("Training Models:")
         print("\tRFC")
@@ -44,8 +46,8 @@ def main():
         knc.fit(Xt, yt)
         print("\tSVC")
         svc.fit(Xt, yt)
-        print("\tGPC")
-        gpc.fit(Xt, yt)
+        print("\tMLP")
+        mlp.fit(Xt, yt)
 
         print("Testing Models:")
         ypred = rfc.predict(Xv)
@@ -64,8 +66,8 @@ def main():
         print("\tSVC:")
         print(accuracy_score(yv, ypred))       
 
-        ypred = gpc.predict(Xv)
-        print("\tGPC:")
+        ypred = mlp.predict(Xv)
+        print("\tMLP:")
         print(accuracy_score(yv, ypred))
 
 if __name__ == "__main__":
