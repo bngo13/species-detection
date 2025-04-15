@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import cudf as cdf
 import pandas as pd
 import numpy as np
 
@@ -12,6 +13,10 @@ def load_dataset():
     # Initialize Image DataFrame
     data_df = pd.DataFrame()
 
+    # Temp DataFrames for conversion
+    header_df = pd.DataFrame()
+    image_df = pd.DataFrame()
+
     # Load Image Data to DataFrame
     for _, row in ID_LIST.iterrows():
         print(f"Reading Index: {row['OrganismID']}")
@@ -20,15 +25,20 @@ def load_dataset():
         dir_path = list(Path(DIR_LOCATION).glob(f"{row['OrganismID']:03}*"))[0]
         file_paths = Path(dir_path).glob("*.tif")
         for file in file_paths:
+            # Populate Headers
             headers = np.array([row["Species"], row["Sex"], row["Stage"], row["location"]])
-            resized_img = np.array(cv2.resize(cv2.imread(file, cv2.IMREAD_GRAYSCALE), (1500, 1000)).flatten()).astype(np.uint8)
             header_df = pd.DataFrame(headers).T
-            header_df[2] = header_df[2].astype(np.uint8)
+
+            # Populate Image
+            resized_img = np.array(cv2.resize(cv2.imread(file, cv2.IMREAD_GRAYSCALE), (1500, 1000)).flatten()).astype(np.uint8)
             img_df = pd.DataFrame(resized_img).T
+
+            # Append to full datadf
             row_df = pd.concat([header_df, img_df], axis=1)
             data_df = pd.concat([data_df, row_df])
     data_df = data_df.reset_index()
     data_df = data_df.drop("index", axis=1)
+    data_df[2] = data_df[2].astype(np.float32)
     data_df = data_df.dropna()
     
     # Rename columns
