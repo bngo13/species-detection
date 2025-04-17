@@ -12,6 +12,9 @@ import pathlib
 import shutil
 import os
 
+from tensorflow.python.keras.utils.vis_utils import plot_model
+
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 """dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
 data_dir = tf.keras.utils.get_file('flower_photos.tar', origin=dataset_url, extract=True)
 data_dir = pathlib.Path(data_dir).with_suffix('')"""
@@ -26,7 +29,7 @@ def load_dataset():
 
   # Load Image Data to DataFrame
   for _, row in ID_LIST.iterrows():
-    print(f"Reading Index: {row['OrganismID']}")
+    #print(f"Reading Index: {row['OrganismID']}")
 
     # Load the image into the row
     dir_path = list(pathlib.Path(DIR_LOCATION).glob(f"{row['OrganismID']:03}*"))[0]
@@ -53,103 +56,164 @@ def load_dataset():
 def image_dataset(data_df):
   return pd.Series.tolist(data_df.iloc[:,[0,4]])
 
-data_df = load_dataset()
-image_df = image_dataset(data_df)
-batch_size = 32
-img_height = 1000
-img_width = 1500
+def train_model(data_df, dropout, layer1, layer2):
+  data_df = load_dataset()
+  image_df = image_dataset(data_df)
+  batch_size = 16
+  img_height = 750
+  img_width = 750
 
-train_ds = tf.keras.utils.image_dataset_from_directory(
-  IMG_DIR_LOCATION,
-  validation_split=0.2,
-  subset="training",
-  seed=123,
-  image_size=(img_height, img_width),
-  batch_size=batch_size)
+  train_ds = tf.keras.utils.image_dataset_from_directory(
+    IMG_DIR_LOCATION,
+    validation_split=0.2,
+    subset="training",
+    seed=123,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
 
-val_ds = tf.keras.utils.image_dataset_from_directory(
-  IMG_DIR_LOCATION,
-  validation_split=0.2,
-  subset="validation",
-  seed=123,
-  image_size=(img_height, img_width),
-  batch_size=batch_size)
+  val_ds = tf.keras.utils.image_dataset_from_directory(
+    IMG_DIR_LOCATION,
+    validation_split=0.2,
+    subset="validation",
+    seed=123,
+    image_size=(img_height, img_width),
+    batch_size=batch_size)
 
-class_names = train_ds.class_names
-print(class_names)
+  class_names = train_ds.class_names
+  print(class_names)
 
-plt.figure(figsize=(10, 10))
-for images, labels in train_ds.take(1):
-  for i in range(9):
-    ax = plt.subplot(3, 3, i + 1)
-    plt.imshow(images[i].numpy().astype("uint8"))
-    plt.title(class_names[labels[i]])
-    plt.axis("off")
+  plt.figure(figsize=(10, 10))
+  for images, labels in train_ds.take(1):
+    for i in range(9):
+      ax = plt.subplot(3, 3, i + 1)
+      plt.imshow(images[i].numpy().astype("uint8"))
+      plt.title(class_names[labels[i]])
+      plt.axis("off")
 
-for image_batch, labels_batch in train_ds:
-  print(image_batch.shape)
-  print(labels_batch.shape)
-  break
+  for image_batch, labels_batch in train_ds:
+    print(image_batch.shape)
+    print(labels_batch.shape)
+    break
 
-AUTOTUNE = tf.data.AUTOTUNE
+  AUTOTUNE = tf.data.AUTOTUNE
 
-train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
-val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
+  train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
+  val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
-normalization_layer = layers.Rescaling(1./255)
+  normalization_layer = layers.Rescaling(1./255)
 
-normalized_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
-image_batch, labels_batch = next(iter(normalized_ds))
-first_image = image_batch[0]
-# Notice the pixel values are now in `[0,1]`.
-print(np.min(first_image), np.max(first_image))
+  normalized_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
+  image_batch, labels_batch = next(iter(normalized_ds))
+  first_image = image_batch[0]
+  # Notice the pixel values are now in `[0,1]`.
+  print(np.min(first_image), np.max(first_image))
 
-num_classes = len(class_names)
+  num_classes = len(class_names)
 
-model = Sequential([
-  layers.Rescaling(1./255, input_shape=(img_height, img_width, 3)),
-  layers.Conv2D(16, 3, padding='same', activation='relu'),
-  layers.MaxPooling2D(),
-  layers.Conv2D(32, 3, padding='same', activation='relu'),
-  layers.MaxPooling2D(),
-  layers.Conv2D(64, 3, padding='same', activation='relu'),
-  layers.MaxPooling2D(),
-  layers.Flatten(),
-  layers.Dense(128, activation='relu'),
-  layers.Dense(num_classes)
-])
+  data_augmentation = keras.Sequential([
+      layers.RandomFlip("horizontal"),
+      layers.RandomRotation(0.1),
+      layers.RandomZoom(0.1),
+      layers.RandomContrast(0.1)
+  ])
 
-model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=['accuracy'])
+  local_weights_path = pathlib.Path(f"mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5")
+  base_model = tf.keras.applications.MobileNetV2(input_shape=(750, 750, 3),include_top=False,weights=None)
+  base_model.load_weights(local_weights_path)
+  base_model.trainable = False  # Freeze the convolutional base
 
-model.summary()
+  inputs = keras.Input(shape=(750, 750, 3))
+  x = data_augmentation(inputs)  # Augmentation layer if desired
+  x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
+  x = base_model(x, training=False)
+  x = layers.GlobalAveragePooling2D()(x)
+  x = layers.Dropout(dropout)(x)
+  x = layers.Dense(layer1, activation='relu')(x)
+  x = layers.Dense(layer2, activation='relu')(x)
+  outputs = layers.Dense(num_classes, activation="softmax")(x)
+  model = keras.Model(inputs, outputs)
 
-epochs=10
-history = model.fit(
-  train_ds,
-  validation_data=val_ds,
-  epochs=epochs
-)
+  model.compile(optimizer=tf.keras.optimizers.Adam(),
+                loss='sparse_categorical_crossentropy',
+                metrics=['accuracy'])
+  """model = Sequential([
+    layers.Rescaling(1./255, input_shape=(img_height, img_width, 3)),
+    layers.Conv2D(16, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+    layers.Conv2D(32, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+    layers.Conv2D(64, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+    layers.Dense(1024, activation='relu'),
+    layers.Flatten(),
+    layers.Dense(16, activation='relu'),
+    layers.Dense(1024, activation='relu'),
+    layers.Dense(num_classes, activation='softmax'),
+    layers.Dense(num_classes)
+  ])
+  
+  model.compile(optimizer='adam',
+                loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                metrics=['accuracy'])"""
 
-acc = history.history['accuracy']
-val_acc = history.history['val_accuracy']
+  model.summary()
 
-loss = history.history['loss']
-val_loss = history.history['val_loss']
+  epochs=50
+  history = model.fit(
+    train_ds,
+    validation_data=val_ds,
+    epochs=epochs
+  )
 
-epochs_range = range(epochs)
+  acc = history.history['accuracy']
+  val_acc = history.history['val_accuracy']
 
-plt.figure(figsize=(8, 8))
-plt.subplot(1, 2, 1)
-plt.plot(epochs_range, acc, label='Training Accuracy')
-plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-plt.legend(loc='lower right')
-plt.title('Training and Validation Accuracy')
+  loss = history.history['loss']
+  val_loss = history.history['val_loss']
 
-plt.subplot(1, 2, 2)
-plt.plot(epochs_range, loss, label='Training Loss')
-plt.plot(epochs_range, val_loss, label='Validation Loss')
-plt.legend(loc='upper right')
-plt.title('Training and Validation Loss')
-plt.show()
+  epochs_range = range(epochs)
+  return model, max(val_acc), [acc, val_acc, loss, val_loss, epochs_range]
+
+
+def training_plot(acc, val_acc, loss, val_loss, epochs_range):
+  plt.figure(figsize=(8, 8))
+  plt.subplot(1, 2, 1)
+  plt.plot(epochs_range, acc, label='Training Accuracy')
+  plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+  plt.legend(loc='lower right')
+  plt.title('Training and Validation Accuracy')
+
+  plt.subplot(1, 2, 2)
+  plt.plot(epochs_range, loss, label='Training Loss')
+  plt.plot(epochs_range, val_loss, label='Validation Loss')
+  plt.legend(loc='upper right')
+  plt.title('Training and Validation Loss')
+  plt.show()
+
+
+def training_all():
+  dropouts = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  layer1s = [4, 8, 16, 32, 64, 128, 256, 512]
+  layer2s = [64, 128, 256, 512, 1024, 2048]
+  results = []
+  data_df = image_dataset(load_dataset())
+  for dropout in dropouts:
+    for layer1 in layer1s:
+      for layer2 in layer2s:
+        model, score, stats = train_model(data_df, dropout, layer1, layer2)
+        print(score)
+        results.append([score, [dropout, layer1, layer2], stats])
+
+  sorted_results = sorted(results, key=lambda x: x[0])
+  for i in range(10):
+    best_result = sorted_results[0]
+    print(best_result[0])
+    print(f"Dropout: {best_result[1][0]}")
+    print(f"Layer 1: {best_result[1][1]}")
+    print(f"Layer 2: {best_result[1][2]}")
+    training_plot(best_result[2][0], best_result[2][1], best_result[2][2], best_result[2][3], best_result[2][4])
+
+
+
+
+training_all()
