@@ -26,7 +26,7 @@ def load_dataset():
         file_paths = Path(dir_path).glob("*.tif")
         for file in file_paths:
             # Populate Headers
-            headers = np.array([row["Species"], row["Sex"], row["Stage"], row["location"]])
+            headers = np.array([row["Species"], row["Sex"], str(row["Stage"]), row["location"]])
             header_df = pd.DataFrame(headers).T
 
             # Populate Image
@@ -36,16 +36,21 @@ def load_dataset():
             # Append to full datadf
             row_df = pd.concat([header_df, img_df], axis=1)
             data_df = pd.concat([data_df, row_df])
+
+    # Data Cleanup
     data_df = data_df.reset_index()
     data_df = data_df.drop("index", axis=1)
-    data_df[2] = data_df[2].astype(np.float32)
-    data_df = data_df.dropna()
     
     # Rename columns
     data_df.columns.values[0] = "species"
     data_df.columns.values[1] = "sex"
     data_df.columns.values[2] = "stage"
     data_df.columns.values[3] = "location"
+
+    data_df['stage'] = data_df['stage'].astype(np.float32)
+    data_df = data_df.dropna()
+    data_df['stage'] = data_df['stage'].astype(np.uint8)
+
 
     return data_df
 
