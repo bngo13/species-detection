@@ -7,9 +7,22 @@ from tensorflow.keras import layers
 from sklearn.model_selection import StratifiedKFold
 import os
 
+# Input Constants
 IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy"
 IMG_HEIGHT = 750
 IMG_WIDTH = 750
+WEIGHTS_LOCATION = "./mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5"
+SUPPORTED_FILE_TYPES = (
+    '.jpg', 
+    '.jpeg', 
+    '.png', 
+    '.tif'
+)
+
+# Output Constants
+OUTPUT_LOCATION = "./Models"
+
+# Model Constants
 BATCH_SIZE = 16
 EPOCHS = 200
 K_FOLDS = 10
@@ -25,7 +38,7 @@ def get_image_paths_and_labels(base_dir):
         class_dir = os.path.join(base_dir, class_name)
         if os.path.isdir(class_dir):
             for file in os.listdir(class_dir):
-                if file.lower().endswith(('.jpg', '.jpeg', '.png', '.tif')):
+                if file.lower().endswith(SUPPORTED_FILE_TYPES):
                     filepaths.append(os.path.join(class_dir, file))
                     labels.append(label_index)
 
@@ -72,7 +85,7 @@ def build_model(num_classes, dropout, layer1, layer2):
         include_top=False,
         weights=None
     )
-    base_model.load_weights("mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5")
+    base_model.load_weights(WEIGHTS_LOCATION)
     base_model.trainable = False
 
     inputs = keras.Input(shape=(IMG_HEIGHT, IMG_WIDTH, 3))
@@ -111,7 +124,7 @@ def run_kfold_training(layer1=128, layer2=512):
         val_acc = history.history['val_accuracy'][-1]
         print(f"Final Fold Accuracy: {acc:.4f}, Validation Accuracy: {val_acc:.4f}")
 
-        model.save(f"../../Models/model_fold{fold}_{val_acc:.4f}.h5")
+        model.save(f"{OUTPUT_LOCATION}/model_fold{fold}_{val_acc:.4f}.h5")
         histories.append(history)
         fold += 1
 
