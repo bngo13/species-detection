@@ -19,7 +19,7 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 data_dir = tf.keras.utils.get_file('flower_photos.tar', origin=dataset_url, extract=True)
 data_dir = pathlib.Path(data_dir).with_suffix('')"""
 DIR_LOCATION = "../../PROJDATASET"
-IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET"
+IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy"
 ID_LIST = pd.read_csv(f"{DIR_LOCATION}/ostracod_IDs.csv")
 
 
@@ -56,9 +56,8 @@ def load_dataset():
 def image_dataset(data_df):
   return pd.Series.tolist(data_df.iloc[:,[0,4]])
 
-def train_model(data_df, dropout, layer1, layer2):
-  data_df = load_dataset()
-  image_df = image_dataset(data_df)
+def train_model(image_df, dropout, layer1, layer2):
+  #image_df = image_dataset()
   batch_size = 16
   img_height = 750
   img_width = 750
@@ -83,12 +82,12 @@ def train_model(data_df, dropout, layer1, layer2):
   print(class_names)
 
   plt.figure(figsize=(10, 10))
-  for images, labels in train_ds.take(1):
+  """for images, labels in train_ds.take(1):
     for i in range(9):
       ax = plt.subplot(3, 3, i + 1)
       plt.imshow(images[i].numpy().astype("uint8"))
       plt.title(class_names[labels[i]])
-      plt.axis("off")
+      plt.axis("off")"""
 
   for image_batch, labels_batch in train_ds:
     print(image_batch.shape)
@@ -112,9 +111,9 @@ def train_model(data_df, dropout, layer1, layer2):
 
   data_augmentation = keras.Sequential([
       layers.RandomFlip("horizontal"),
-      layers.RandomRotation(0.1),
-      layers.RandomZoom(0.1),
-      layers.RandomContrast(0.1)
+      layers.RandomRotation(0.2),
+      layers.RandomZoom(0.2),
+      layers.RandomContrast(0.2)
   ])
 
   local_weights_path = pathlib.Path(f"mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5")
@@ -127,9 +126,9 @@ def train_model(data_df, dropout, layer1, layer2):
   x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
   x = base_model(x, training=False)
   x = layers.GlobalAveragePooling2D()(x)
-  x = layers.Dropout(dropout)(x)
-  x = layers.Dense(layer1, activation='relu')(x)
-  x = layers.Dense(layer2, activation='relu')(x)
+  x = layers.Dropout(0.3)(x)
+  x = layers.Dense(128, activation='relu')(x)
+  x = layers.Dense(512, activation='relu')(x)
   outputs = layers.Dense(num_classes, activation="softmax")(x)
   model = keras.Model(inputs, outputs)
 
@@ -158,7 +157,7 @@ def train_model(data_df, dropout, layer1, layer2):
 
   model.summary()
 
-  epochs=50
+  epochs=200
   history = model.fit(
     train_ds,
     validation_data=val_ds,
@@ -172,6 +171,30 @@ def train_model(data_df, dropout, layer1, layer2):
   val_loss = history.history['val_loss']
 
   epochs_range = range(epochs)
+  predictions = model.predict(val_ds)
+  for i in predictions:
+    score = tf.nn.softmax(i)
+
+    print(
+      "This image most likely belongs to {} with a {:.2f} percent confidence."
+      .format(class_names[np.argmax(score)], 100 * np.max(score))
+    )
+  """for image in val_ds:
+    print(image)
+    img = image
+    img_array = tf.keras.utils.img_to_array(img)
+    img_array = tf.expand_dims(img_array, 0)  # Create a batch
+
+    predictions = model.predict(image)
+    score = tf.nn.softmax(predictions[0])
+
+    print(
+      "This image most likely belongs to {} with a {:.2f} percent confidence."
+      .format(class_names[np.argmax(score)], 100 * np.max(score))
+    )"""
+
+  model.save(f"../../Models/model_acc_{val_acc[-1]}.h5")
+
   return model, max(val_acc), [acc, val_acc, loss, val_loss, epochs_range]
 
 
@@ -192,9 +215,9 @@ def training_plot(acc, val_acc, loss, val_loss, epochs_range):
 
 
 def training_all():
-  dropouts = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-  layer1s = [4, 8, 16, 32, 64, 128, 256, 512]
-  layer2s = [64, 128, 256, 512, 1024, 2048]
+  dropouts = [0]
+  layer1s = [128, 256, 512, 1024]
+  layer2s = [256, 512, 1024, 2048]
   results = []
   data_df = image_dataset(load_dataset())
   for dropout in dropouts:
@@ -206,7 +229,7 @@ def training_all():
 
   sorted_results = sorted(results, key=lambda x: x[0])
   for i in range(10):
-    best_result = sorted_results[0]
+    best_result = sorted_results[-i]
     print(best_result[0])
     print(f"Dropout: {best_result[1][0]}")
     print(f"Layer 1: {best_result[1][1]}")
@@ -216,4 +239,4 @@ def training_all():
 
 
 
-training_all()
+train_model(0,0,0,0)
