@@ -4,6 +4,7 @@ import PIL
 import tensorflow as tf
 import pandas as pd
 import cv2
+from keras.src.callbacks import ModelCheckpoint, EarlyStopping
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -81,8 +82,8 @@ def train_model(image_df, dropout, layer1, layer2):
   class_names = train_ds.class_names
   print(class_names)
 
-  plt.figure(figsize=(10, 10))
-  """for images, labels in train_ds.take(1):
+  """plt.figure(figsize=(10, 10))
+  for images, labels in train_ds.take(1):
     for i in range(9):
       ax = plt.subplot(3, 3, i + 1)
       plt.imshow(images[i].numpy().astype("uint8"))
@@ -126,8 +127,8 @@ def train_model(image_df, dropout, layer1, layer2):
   x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
   x = base_model(x, training=False)
   x = layers.GlobalAveragePooling2D()(x)
-  x = layers.Dropout(0.3)(x)
-  x = layers.Dense(128, activation='relu')(x)
+  x = layers.Dropout(0.5)(x)
+  x = layers.Dense(1024, activation='relu')(x)
   x = layers.Dense(512, activation='relu')(x)
   outputs = layers.Dense(num_classes, activation="softmax")(x)
   model = keras.Model(inputs, outputs)
@@ -156,12 +157,27 @@ def train_model(image_df, dropout, layer1, layer2):
                 metrics=['accuracy'])"""
 
   model.summary()
+  checkpoint_callback = ModelCheckpoint(
+    filepath=f'../../Models/model_acc.weights.h5',
+    monitor='val_accuracy',
+    save_best_only=True,
+    save_weights_only=True,
+    mode='max'  # Use 'max' for accuracy
+  )
+
+  early_stopping_callback = EarlyStopping(
+    monitor='val_accuracy',
+    patience=20,
+    restore_best_weights=True,
+    mode='max'  # Use 'max' for accuracy
+  )
 
   epochs=200
   history = model.fit(
     train_ds,
     validation_data=val_ds,
-    epochs=epochs
+    epochs=epochs,
+    callbacks=[checkpoint_callback, early_stopping_callback]
   )
 
   acc = history.history['accuracy']
@@ -193,7 +209,10 @@ def train_model(image_df, dropout, layer1, layer2):
       .format(class_names[np.argmax(score)], 100 * np.max(score))
     )"""
 
-  model.save(f"../../Models/model_acc_{val_acc[-1]}.h5")
+  evaluate = model.evaluate(val_ds)
+  model.save(f"../../Models/model_acc_{evaluate.val_accuracy}.h5")
+
+  #training_plot(acc, val_acc, loss, val_loss, epochs_range)
 
   return model, max(val_acc), [acc, val_acc, loss, val_loss, epochs_range]
 
@@ -215,7 +234,7 @@ def training_plot(acc, val_acc, loss, val_loss, epochs_range):
 
 
 def training_all():
-  dropouts = [0]
+  dropouts = [0, 0.3, 0.5, 0.7]
   layer1s = [128, 256, 512, 1024]
   layer2s = [256, 512, 1024, 2048]
   results = []
@@ -223,20 +242,19 @@ def training_all():
   for dropout in dropouts:
     for layer1 in layer1s:
       for layer2 in layer2s:
-        model, score, stats = train_model(data_df, dropout, layer1, layer2)
+        model, score, stats = train_model(data_df.copy(), dropout, layer1, layer2)
         print(score)
-        results.append([score, [dropout, layer1, layer2], stats])
+        results.append([score*100, [dropout, layer1, layer2], stats])
 
-  sorted_results = sorted(results, key=lambda x: x[0])
+  results.sort(key=lambda x: x[0])
+  print(max(results))
   for i in range(10):
-    best_result = sorted_results[-i]
+    best_result = results[-i+1]
     print(best_result[0])
     print(f"Dropout: {best_result[1][0]}")
     print(f"Layer 1: {best_result[1][1]}")
     print(f"Layer 2: {best_result[1][2]}")
     training_plot(best_result[2][0], best_result[2][1], best_result[2][2], best_result[2][3], best_result[2][4])
-
-
 
 
 train_model(0,0,0,0)
