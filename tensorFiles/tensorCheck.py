@@ -127,9 +127,9 @@ def train_model(image_df, dropout, layer1, layer2):
   x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
   x = base_model(x, training=False)
   x = layers.GlobalAveragePooling2D()(x)
-  x = layers.Dropout(0.5)(x)
-  x = layers.Dense(1024, activation='relu')(x)
-  x = layers.Dense(512, activation='relu')(x)
+  x = layers.Dropout(dropout)(x)
+  x = layers.Dense(layer1, activation='relu')(x)
+  x = layers.Dense(layer2, activation='relu')(x)
   outputs = layers.Dense(num_classes, activation="softmax")(x)
   model = keras.Model(inputs, outputs)
 
@@ -172,7 +172,7 @@ def train_model(image_df, dropout, layer1, layer2):
     mode='max'  # Use 'max' for accuracy
   )
 
-  epochs=200
+  epochs=100
   history = model.fit(
     train_ds,
     validation_data=val_ds,
@@ -188,13 +188,13 @@ def train_model(image_df, dropout, layer1, layer2):
 
   epochs_range = range(epochs)
   predictions = model.predict(val_ds)
-  for i in predictions:
+  """for i in predictions:
     score = tf.nn.softmax(i)
 
     print(
       "This image most likely belongs to {} with a {:.2f} percent confidence."
       .format(class_names[np.argmax(score)], 100 * np.max(score))
-    )
+    )"""
   """for image in val_ds:
     print(image)
     img = image
@@ -210,7 +210,7 @@ def train_model(image_df, dropout, layer1, layer2):
     )"""
 
   evaluate = model.evaluate(val_ds)
-  model.save(f"../../Models/model_acc_{evaluate.val_accuracy}.h5")
+  model.save(f"../../Models/model_acc_{evaluate[1]}.keras")
 
   #training_plot(acc, val_acc, loss, val_loss, epochs_range)
 
@@ -246,10 +246,10 @@ def training_all():
         print(score)
         results.append([score*100, [dropout, layer1, layer2], stats])
 
-  results.sort(key=lambda x: x[0])
+  results.sort(key=lambda x: x[1], reverse=True)
   print(max(results))
   for i in range(10):
-    best_result = results[-i+1]
+    best_result = results[i-1]
     print(best_result[0])
     print(f"Dropout: {best_result[1][0]}")
     print(f"Layer 1: {best_result[1][1]}")
@@ -257,4 +257,5 @@ def training_all():
     training_plot(best_result[2][0], best_result[2][1], best_result[2][2], best_result[2][3], best_result[2][4])
 
 
-train_model(0,0,0,0)
+#train_model(0,0,0,0)
+training_all()

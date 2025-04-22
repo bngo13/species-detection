@@ -96,7 +96,7 @@ def create_model():
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.5)(x)
     x = layers.Dense(1024, activation='relu')(x)
-    x = layers.Dense(512, activation='relu')(x)
+    x = layers.Dense(1024, activation='relu')(x)
     outputs = layers.Dense(3, activation="softmax")(x)
     model = keras.Model(inputs, outputs)
 
