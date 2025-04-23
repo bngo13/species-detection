@@ -134,7 +134,10 @@ def run_kfold_training(layer1, layer2):
         mode='max'  # Use 'max' for accuracy
     )
 
-    model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS, callbacks=[checkpoint_callback, early_stopping_callback])
+    hist = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS, callbacks=[checkpoint_callback, early_stopping_callback])
+    acc = hist.history['accuracy'][-1]
+    val_acc = hist.history['val_accuracy'][-1]
+    model.save(f"{OUTPUT_LOCATION}/model_fold{fold}_acc{acc}_vacc{val_acc:.4f}")
 
 
 # Run it
