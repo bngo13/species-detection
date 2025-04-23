@@ -1,14 +1,13 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import pandas as pd
 from tensorflow import keras
 from tensorflow.keras import layers
 from sklearn.model_selection import StratifiedKFold
+from keras.src.callbacks import ModelCheckpoint, EarlyStopping
 import os
 
 # Input Constants
-IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy"
+IMG_DIR_LOCATION = "./PROJDATASET"
 IMG_HEIGHT = 750
 IMG_WIDTH = 750
 WEIGHTS_LOCATION = "./mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5"
@@ -24,7 +23,7 @@ OUTPUT_LOCATION = "./Models"
 
 # Model Constants
 BATCH_SIZE = 16
-EPOCHS = 200
+EPOCHS = 1000
 K_FOLDS = 10
 DROPOUT = 0.5
 
@@ -87,6 +86,7 @@ def build_model(num_classes, dropout, layer1, layer2):
     )
     base_model.load_weights(WEIGHTS_LOCATION)
     base_model.trainable = False
+    # for layer in base_model.layers[:50]: layer.trainable = True
 
     inputs = keras.Input(shape=(IMG_HEIGHT, IMG_WIDTH, 3))
     x = tf.keras.applications.mobilenet_v2.preprocess_input(inputs)
@@ -104,7 +104,7 @@ def build_model(num_classes, dropout, layer1, layer2):
     return model
 
 # K-Fold training loop
-def run_kfold_training(layer1=128, layer2=512):
+def run_kfold_training(layer1, layer2):
     filepaths, labels, class_names = get_image_paths_and_labels(IMG_DIR_LOCATION)
     skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True, random_state=42)
 
@@ -118,17 +118,33 @@ def run_kfold_training(layer1=128, layer2=512):
         val_ds = create_dataset(filepaths[val_idx], labels[val_idx])
 
         model = build_model(num_classes=len(class_names), dropout=DROPOUT, layer1=layer1, layer2=layer2)
-        history = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS)
+
+        checkpoint_callback = ModelCheckpoint(
+            filepath=f"{OUTPUT_LOCATION}/model_fold{fold}.keras",
+            monitor='val_accuracy',
+            save_best_only=True,
+            save_weights_only=False,
+            mode='max'  # Use 'max' for accuracy
+        )
+
+        early_stopping_callback = EarlyStopping(
+            monitor='val_accuracy',
+            patience=100,
+            restore_best_weights=True,
+            mode='max'  # Use 'max' for accuracy
+        )
+
+        history = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS, callbacks=[checkpoint_callback, early_stopping_callback])
 
         acc = history.history['accuracy'][-1]
         val_acc = history.history['val_accuracy'][-1]
         print(f"Final Fold Accuracy: {acc:.4f}, Validation Accuracy: {val_acc:.4f}")
 
-        model.save(f"{OUTPUT_LOCATION}/model_fold{fold}_{val_acc:.4f}.h5")
+        # model.save(f"{OUTPUT_LOCATION}/model_fold{fold}_{val_acc:.4f}.keras")
         histories.append(history)
         fold += 1
 
     return histories
 
 # Run it
-histories = run_kfold_training(layer1=128, layer2=512)
+histories = run_kfold_training(layer1=1024, layer2=1024)
