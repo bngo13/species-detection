@@ -5,8 +5,8 @@ from PIL import Image, ImageEnhance
 
 
 IMG_DIR_LOCATION = "../../VALIDATION_DATASET"
-DIR_LOCATION = "../../TENSOR_PROJDATASET_copy"
-Folders = ["other"]
+DIR_LOCATION = "../../TENSOR_PROJDATASET_copy_copy1"
+Folders = ["carcharodonta","morini","other"]
 
 
 def load_dataset():
@@ -36,5 +36,6 @@ def load_dataset():
             contrast_factor = 1.0
             contrast_image = enhancer.enhance(contrast_factor)
             contrast_image.save(f"{name}3{extension}")
+            os.remove(file)
 
 load_dataset()
