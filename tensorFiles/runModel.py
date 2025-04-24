@@ -5,13 +5,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import pandas as pd
+import seaborn as sns
 from tensorflow import keras
 from tensorflow.keras import layers
 from sklearn.model_selection import StratifiedKFold
 import os
 
+from tensorflow.python.ops.confusion_matrix import confusion_matrix
+
 # Input Constants
-IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy_copy"
+IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy"
 IMG_HEIGHT = 750
 IMG_WIDTH = 750
 WEIGHTS_LOCATION = "./mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5"
@@ -38,16 +41,14 @@ def create_dataset():
     img_width = 750
     train_ds = tf.keras.utils.image_dataset_from_directory(
         IMG_DIR_LOCATION,
-        validation_split=0.99,
-        subset="training",
+        validation_split=None,
         seed=123,
         image_size=(img_height, img_width),
         batch_size=batch_size)
 
     val_ds = tf.keras.utils.image_dataset_from_directory(
         IMG_DIR_LOCATION,
-        validation_split=0.99,
-        subset="validation",
+        validation_split=None,
         seed=123,
         image_size=(img_height, img_width),
         batch_size=batch_size)
@@ -123,10 +124,37 @@ def run_model():
     train_ds, val_ds, class_names, num_classes = create_dataset()
     model = build_model(0,0,0,0)
     evaluate = model.evaluate(val_ds)
+    y_prediction = model.predict(val_ds)
+    y_pred = np.argmax(y_prediction, axis=1)
+    y_test = np.array([label for _, label in val_ds.unbatch()])
+    # Create confusion matrix and normalizes it over predicted (columns)
+    cm = confusion_matrix(y_test, y_pred)
 
+    # optional: normalize by row (true label) or column (predicted label)
+    #cm_norm = confusion_matrix(y_test, y_pred, normalize='true')  # rows sum to 1
+
+    # plot
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt=".2f",
+        xticklabels=class_names,
+        yticklabels=class_names,
+        cmap="Blues"
+    )
+    plt.ylabel("True label")
+    plt.xlabel("Predicted label")
+    plt.title("Fold 1 Confusion Matrix")
     return evaluate
 
 # Evaluate the model
 evaluate = run_model()
 print(evaluate)
+
+
+plt.savefig("confusion_matrix_1.png")
+plt.show()
+#Predict
+
 #print("Restored model, accuracy: {:5.2f}%".format(100 * evaluate.acc))
