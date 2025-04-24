@@ -23,7 +23,7 @@ OUTPUT_LOCATION = "./Models"
 
 # Model Constants
 BATCH_SIZE = 16
-EPOCHS = 10000
+EPOCHS = 300
 K_FOLDS = 10
 DROPOUT = 0.5
 
@@ -108,36 +108,34 @@ def run_kfold_training(layer1, layer2):
     filepaths, labels, class_names = get_image_paths_and_labels(IMG_DIR_LOCATION)
     skf = StratifiedKFold(n_splits=K_FOLDS, shuffle=True, random_state=42)
 
-    fold = 1
+    folds = [1, 2, 3, 4, 5, 6, 7, 9, 10]
 
-    train_idx, val_idx = list(skf.split(filepaths, labels))[fold - 1]
+    for fold in folds:
+        train_idx, val_idx = list(skf.split(filepaths, labels))[fold - 1]
 
-    print(f"\n--- Fold {fold} ---")
+        print(f"\n--- Fold {fold} ---")
 
-    train_ds = create_dataset(filepaths[train_idx], labels[train_idx], augment=True, shuffle=True)
-    val_ds = create_dataset(filepaths[val_idx], labels[val_idx])
+        train_ds = create_dataset(filepaths[train_idx], labels[train_idx], augment=True, shuffle=True)
+        val_ds = create_dataset(filepaths[val_idx], labels[val_idx])
 
-    model = build_model(num_classes=len(class_names), dropout=DROPOUT, layer1=layer1, layer2=layer2)
+        model = build_model(num_classes=len(class_names), dropout=DROPOUT, layer1=layer1, layer2=layer2)
 
-    checkpoint_callback = ModelCheckpoint(
-        filepath=f"{OUTPUT_LOCATION}/model_fold{fold}.keras",
-        monitor='val_accuracy',
-        save_best_only=True,
-        save_weights_only=False,
-        mode='max'  # Use 'max' for accuracy
-    )
+        checkpoint_callback = ModelCheckpoint(
+            filepath=f"{OUTPUT_LOCATION}/model_fold{fold}.keras",
+            monitor='val_accuracy',
+            save_best_only=True,
+            save_weights_only=False,
+            mode='max'  # Use 'max' for accuracy
+        )
 
-    early_stopping_callback = EarlyStopping(
-        monitor='val_accuracy',
-        patience=100,
-        restore_best_weights=True,
-        mode='max'  # Use 'max' for accuracy
-    )
+        early_stopping_callback = EarlyStopping(
+            monitor='val_accuracy',
+            patience=100,
+            restore_best_weights=True,
+            mode='max'  # Use 'max' for accuracy
+        )
 
-    hist = model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS, callbacks=[checkpoint_callback, early_stopping_callback])
-    acc = hist.history['accuracy'][-1]
-    val_acc = hist.history['val_accuracy'][-1]
-    model.save(f"{OUTPUT_LOCATION}/model_fold{fold}_acc{acc}_vacc{val_acc:.4f}.keras")
+        model.fit(train_ds, validation_data=val_ds, epochs=EPOCHS, callbacks=[checkpoint_callback, early_stopping_callback])
 
 
 # Run it
