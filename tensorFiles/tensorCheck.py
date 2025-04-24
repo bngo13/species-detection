@@ -167,12 +167,12 @@ def train_model(image_df, dropout, layer1, layer2):
 
   early_stopping_callback = EarlyStopping(
     monitor='val_accuracy',
-    patience=20,
+    patience=30,
     restore_best_weights=True,
     mode='max'  # Use 'max' for accuracy
   )
 
-  epochs=100
+  epochs=1000
   history = model.fit(
     train_ds,
     validation_data=val_ds,
@@ -234,9 +234,9 @@ def training_plot(acc, val_acc, loss, val_loss, epochs_range):
 
 
 def training_all():
-  dropouts = [0, 0.3, 0.5, 0.7]
-  layer1s = [128, 256, 512, 1024]
-  layer2s = [256, 512, 1024, 2048]
+  dropouts = [0.3, 0.5, 0.7]
+  layer1s = [512, 1024]
+  layer2s = [1024, 2048]
   results = []
   data_df = image_dataset(load_dataset())
   for dropout in dropouts:
@@ -254,7 +254,7 @@ def training_all():
     print(f"Dropout: {best_result[1][0]}")
     print(f"Layer 1: {best_result[1][1]}")
     print(f"Layer 2: {best_result[1][2]}")
-    training_plot(best_result[2][0], best_result[2][1], best_result[2][2], best_result[2][3], best_result[2][4])
+    #training_plot(best_result[2][0], best_result[2][1], best_result[2][2], best_result[2][3], best_result[2][4])
 
 
 #train_model(0,0,0,0)

@@ -55,13 +55,13 @@ def create_dataset():
     class_names = train_ds.class_names
     print(class_names)
 
-    """plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(10, 10))
     for images, labels in train_ds.take(1):
       for i in range(9):
         ax = plt.subplot(3, 3, i + 1)
         plt.imshow(images[i].numpy().astype("uint8"))
         plt.title(class_names[labels[i]])
-        plt.axis("off")"""
+        plt.axis("off")
 
     for image_batch, labels_batch in train_ds:
         print(image_batch.shape)
@@ -90,13 +90,21 @@ def create_model():
     base_model.load_weights(local_weights_path)
     base_model.trainable = False
 
+    data_augmentation = keras.Sequential([
+        layers.RandomFlip("horizontal"),
+        layers.RandomRotation(1),
+        layers.RandomZoom(0.2),
+        layers.RandomContrast(0.2)
+    ])
+
     inputs = keras.Input(shape=(750, 750, 3))
-    x = tf.keras.applications.mobilenet_v2.preprocess_input(inputs)
+    x = data_augmentation(inputs)
+    x = tf.keras.applications.mobilenet_v2.preprocess_input(x)
     x = base_model(x, training=False)
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.5)(x)
-    x = layers.Dense(1024, activation='relu')(x)
-    x = layers.Dense(1024, activation='relu')(x)
+    x = layers.Dense(128, activation='relu')(x)
+    x = layers.Dense(2048, activation='relu')(x)
     outputs = layers.Dense(3, activation="softmax")(x)
     model = keras.Model(inputs, outputs)
 
