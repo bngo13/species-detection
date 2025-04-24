@@ -11,7 +11,7 @@ from sklearn.model_selection import StratifiedKFold
 import os
 
 # Input Constants
-IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy"
+IMG_DIR_LOCATION = "../../TENSOR_PROJDATASET_copy_copy"
 IMG_HEIGHT = 750
 IMG_WIDTH = 750
 WEIGHTS_LOCATION = "./mobilenet_v2_weights_tf_dim_ordering_tf_kernels_1.0_224_no_top.h5"
@@ -38,7 +38,7 @@ def create_dataset():
     img_width = 750
     train_ds = tf.keras.utils.image_dataset_from_directory(
         IMG_DIR_LOCATION,
-        validation_split=0.2,
+        validation_split=0.99,
         subset="training",
         seed=123,
         image_size=(img_height, img_width),
@@ -46,7 +46,7 @@ def create_dataset():
 
     val_ds = tf.keras.utils.image_dataset_from_directory(
         IMG_DIR_LOCATION,
-        validation_split=0.2,
+        validation_split=0.99,
         subset="validation",
         seed=123,
         image_size=(img_height, img_width),
@@ -103,8 +103,8 @@ def create_model():
     x = base_model(x, training=False)
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.5)(x)
-    x = layers.Dense(128, activation='relu')(x)
-    x = layers.Dense(2048, activation='relu')(x)
+    x = layers.Dense(1024, activation='relu')(x)
+    x = layers.Dense(1024, activation='relu')(x)
     outputs = layers.Dense(3, activation="softmax")(x)
     model = keras.Model(inputs, outputs)
 
