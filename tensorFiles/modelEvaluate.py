@@ -1,12 +1,26 @@
 import tensorflow as tf
 
-MODEL = './Models/model_fold1.keras'
+modelList = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+]
 
 IMG_DIR = "./TESTDATASET/"
 IMG_W = 750
 IMG_H = 750
 
-model = tf.keras.models.load_model(MODEL)
-dataset = tf.keras.utils.image_dataset_from_directory(IMG_DIR, image_size=(IMG_H, IMG_W))
+for model in modelList:
+    model_dir = f"./Models/model_fold{model}.keras"
 
-print(model.evaluate(dataset))
+    model = tf.keras.models.load_model(model_dir)
+    dataset = tf.keras.utils.image_dataset_from_directory(IMG_DIR, image_size=(IMG_H, IMG_W))
+
+    print(model.evaluate(dataset))
